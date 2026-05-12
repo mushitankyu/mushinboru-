@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ムシンボル | 昆虫本質診断</title>
+    <style>
+        :root {
+            --primary-bg: #0b140d;
+            --accent-color: #a3d133;
+            --text-color: #e0e0e0;
+            --card-bg: rgba(20, 30, 25, 0.95);
+        }
+
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            overflow: hidden; 
+        }
+
+        .forest-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0b140d 0%, #1a2e1d 50%, #050a05 100%);
+            z-index: -1;
+        }
+
+        .container {
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; width: 100vw; padding: 20px; box-sizing: border-box;
+            position: relative;
+        }
+
+        .screen {
+            background: var(--card-bg); backdrop-filter: blur(20px);
+            padding: clamp(20px, 5vw, 40px); border-radius: 8px;
+            width: 100%; max-width: 650px;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.7);
+            display: none; 
+            text-align: center;
+            box-sizing: border-box;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .active { display: block !important; animation: fadeIn 0.6s forwards; }
+
+        .logo-area h1 {
+            font-size: clamp(2.5rem, 8vw, 4.5rem); letter-spacing: 15px; margin: 0;
+            color: #fff; text-shadow: 0 0 25px rgba(163, 209, 51, 0.5); font-weight: 100;
+        }
+        .subtitle { color: var(--accent-color); letter-spacing: 5px; margin-top: 10px; font-weight: 300; }
+
+        .progress-bar { height: 2px; background: #222; margin-bottom: 30px; }
+        .progress-fill { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.3s; }
+
+        .question-text { font-size: 1.2rem; font-weight: bold; line-height: 1.6; margin-bottom: 35px; min-height: 80px; }
+        .options { display: flex; flex-direction: column; gap: 12px; }
+
+        .opt-btn {
+            padding: 18px; background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1); color: #ccc;
+            border-radius: 4px; cursor: pointer; font-size: 0.95rem; text-align: left;
+            transition: all 0.3s;
+        }
+        .opt-btn:hover { background: rgba(163, 209, 51, 0.15); border-color: var(--accent-color); color: #fff; }
+
+        .insect-name { font-size: clamp(2rem, 6vw, 3rem); margin: 10px 0; color: #fff; font-family: serif; }
+        
+        .photo-container {
+            width: 100%; height: auto; max-height: 300px; overflow: hidden;
+            border-radius: 4px; margin: 15px 0; border: 1px solid #333;
+            background: #000; display: flex; justify-content: center; align-items: center;
+        }
+        .insect-photo { width: 100%; height: 100%; object-fit: contain; }
+
+        .credit { font-size: 0.7rem; text-align: right; color: #888; margin-top: 5px; }
+        .start-btn {
+            margin-top: 30px; padding: 15px 50px; background: transparent;
+            border: 1px solid var(--accent-color); color: var(--accent-color);
+            cursor: pointer; font-size: 1rem; letter-spacing: 2px; transition: 0.4s;
+        }
+        .start-btn:hover { background: var(--accent-color); color: #000; box-shadow: 0 0 20px var(--accent-color); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -48%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    </style>
+</head>
+<body>
+
+<div class="forest-bg"></div>
+
+<div class="container">
+    <div id="home-screen" class="screen active">
+        <div class="logo-area">
+            <h1>MUSHIMBOL</h1>
+            <p class="subtitle">― 本質探求版 ―</p>
+        </div>
+        <button class="start-btn" onclick="startApp()">診 断 を 開 始</button>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div class="progress-bar"><div id="progress" class="progress-fill"></div></div>
+        <div id="status-text" style="font-size: 0.8rem; color: #a3d133; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase;">Analyzing...</div>
+        <div id="q-text" class="question-text"></div>
+        <div class="options">
+            <button class="opt-btn" id="btnA" onclick="handleAnswer('A')"></button>
+            <button class="opt-btn" id="btnB" onclick="handleAnswer('B')"></button>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <p style="color: var(--accent-color); font-weight: bold; letter-spacing: 2px;">YOUR SYMBOL</p>
+        <h2 class="insect-name" id="res-name"></h2>
+        <div class="photo-container"><img id="res-img" class="insect-photo" src="" alt="result"></div>
+        <p class="credit">画像出典: Wikipedia</p>
+        <p id="res-desc" style="line-height: 1.8; text-align: left; margin: 20px 0; color: #bbb;"></p>
+        <button class="start-btn" onclick="location.reload()">最初に戻る</button>
+    </div>
+</div>
+
+<script>
+    const insectDB = {
+        "A1": { name: "ノコギリクワガタ", wiki: "ノコギリクワガタ", desc: "プライド高き戦士。実力行使も辞さない力強い意志を持ち、勝利を掴むために果敢に挑みます。" },
+        "A2": { name: "タガメ", wiki: "タガメ", desc: "水中の支配者。チャンスを逃さず、静かに、しかし確実に標的を捕らえる圧倒的な集中力を持っています。" },
+        "A3": { name: "ハキリアリ", wiki: "ハキリアリ", desc: "組織の改革者。巨大なシステムを効率的に動かし、チームのために新しい価値を生み出す力に長けています。" },
+        "A4": { name: "アメンボ", wiki: "アメンボ", desc: "軽快なスピードスター。誰よりも早く変化を察知し、水面を滑るように自由に移動する柔軟性を持っています。" },
+        "B1": { name: "ミノムシ", wiki: "ミノガ", desc: "内省の求道者。外の世界の喧騒を遮断し、自分だけの「完璧な世界」をコツコツと築き上げる忍耐強い性格です。" },
+        "B2": { name: "コノハムシ", wiki: "コノハムシ", desc: "究極の適応者。環境に完璧に溶け込み、時が来るまで静かに待ち続ける、守りの知恵を持っています。" },
+        "B3": { name: "フンコロガシ", wiki: "スカラベ", desc: "不屈の探求者。たとえ泥臭い努力であっても、自分の大切な「宝」のために一途に突き進む情熱を持っています。" },
+        "B4": { name: "ゲンゴロウ", wiki: "ゲンゴロウ", desc: "多才な遊泳者。二つの異なる世界を器用に渡り歩き、どんな環境でも自分を失わずに活動できるバイタリティがあります。" },
+        "ESTJ": { name: "スズメバチ", wiki: "スズメバチ", desc: "秩序を守る厳格なリーダー。規律と正義を重んじ、集団を導きます。" },
+        "ISTJ": { name: "働きアリ", wiki: "アリ", desc: "誠実な努力家。一歩ずつ着実に任務を遂行し、社会を支えます。" },
+        "ESFJ": { name: "ミツバチ", wiki: "ミツバチ", desc: "献身的な支え。仲間のために尽くす最高の調整役です。" },
+        "ISFJ": { name: "カイコガ", wiki: "カイコ", desc: "慈愛の守護者。控えめですが周囲を温かく守ります。" },
+        "ESTP": { name: "トノサマバッタ", wiki: "トノサマバッタ", desc: "行動力抜群の勝負師。今この瞬間を全力で生きる。" },
+        "ISTP": { name: "カマキリ", wiki: "カマキリ", desc: "職人気質の孤高のハンター。冷静に技術を磨きます。" },
+        "ESFP": { name: "セミ", wiki: "セミ", desc: "明るいパフォーマー。周囲にエネルギーを振りまきます。" },
+        "ISFP": { name: "ナナフシ", wiki: "ナナフシ", desc: "静かな芸術家。自分の世界を大切にする平和主義者。" },
+        "ENTJ": { name: "オニヤンマ", wiki: "オニヤンマ", desc: "圧倒的カリスマ。高い目標に向かい効率的に進みます。" },
+        "INTJ": { name: "ジョロウグモ", wiki: "ジョロウグモ", desc: "緻密な知略家。未来を予測し、完璧な罠を張ります。" },
+        "ENTP": { name: "カブトムシ", wiki: "カブトムシ", desc: "好奇心旺盛な開拓者。常に新しい挑戦を求めます。" },
+        "INTP": { name: "ゴミムシダマシ", wiki: "ゴミムシダマシ", desc: "真理を追う哲学者。独自の理論を深める探求者。" },
+        "ENFJ": { name: "アゲハチョウ", wiki: "アゲハチョウ", desc: "人々を導く希望の光。理想を共有し共感を広げます。" },
+        "INFJ": { name: "オオカバマダラ", wiki: "オオカバマダラ", desc: "洞察力ある巡礼者。静かな情熱で理想を追います。" },
+        "ENFP": { name: "テントウムシ", wiki: "テントウムシ", desc: "可能性を信じる自由人。ワクワクを広める愛されキャラ。" },
+        "INFP": { name: "ホタル", wiki: "ホタル", desc: "理想を抱く夢想家。自分だけの光を静かに守ります。" }
+    };
+
+    const branchQuestion = { q: "あなたは、どっちのタイプ？", a: "現状を打破し、新しい世界を自ら作り上げたい", b: "自分を研ぎ澄まし、深い安らぎと調和を見つけたい" };
+
+    const pathAQuestions = [
+        { q: "勝負をするなら？", a: "正面から堂々と戦う", b: "裏をかいて賢く勝つ", type: "T" },
+        { q: "リーダーの役割は？", a: "明確なビジョンを示すこと", b: "メンバーの能力を引き出すこと", type: "E" },
+        { q: "失敗した時、どうする？", a: "すぐに別の方法を試す", b: "原因を徹底的に分析する", type: "J" },
+        { q: "未知の分野への挑戦は？", a: "ワクワクして飛び込む", b: "入念に準備してから挑む", type: "S" },
+        { q: "評価されるならどっち？", a: "「個人の実力」", b: "「組織への貢献」", type: "T" },
+        { q: "休息の仕方は？", a: "スポーツや外出で発散する", b: "家で戦略を練り直す", type: "E" },
+        { q: "他人のミスに対しては？", a: "ハッキリと指摘する", b: "フォローして次に繋げる", type: "F" },
+        { q: "自分のアイデアは？", a: "すぐに実行して形にしたい", b: "じっくり温めて完璧にしたい", type: "P" },
+        { q: "人との関わり方は？", a: "広く浅く多くの情報を得たい", b: "信頼できる少数と深く組みたい", type: "I" },
+        { q: "プレゼンするなら？", a: "熱意で人を動かしたい", b: "論理で人を納得させたい", type: "T" },
+        { q: "ライバルの存在は？", a: "自分の成長に必要不可欠だ", b: "できればいない方がいい", type: "J" },
+        { q: "トラブルが起きたら？", a: "自分が先頭に立って解決する", b: "周囲と協力して分担する", type: "E" },
+        { q: "大切にしているのは？", a: "過去の経験", b: "未来の可能性", type: "N" },
+        { q: "仕事の進め方は？", a: "スピード重視", b: "質重視", type: "J" },
+        { q: "決断の速さは？", a: "即断即決", b: "熟考してから", type: "T" },
+        { q: "集団の中での自分は？", a: "目立つ存在でありたい", b: "黒子として支えたい", type: "E" },
+        { q: "ルールに対しては？", a: "必要なら変えていく", b: "守ることで秩序を保つ", type: "S" },
+        { q: "好きな言葉は？", a: "「開拓」", b: "「統治」", type: "T" },
+        { q: "朝のルーティンは？", a: "分刻みで決まっている", b: "その日の気分で変える", type: "J" },
+        { q: "他人に求めるのは？", a: "スピード感", b: "誠実さ", type: "F" },
+        { q: "大きな決断をする時", a: "自分の勘を信じる", b: "客観的な証拠を集める", type: "S" },
+        { q: "対立が起きたら？", a: "納得するまで議論する", b: "お互いの妥協点を探す", type: "T" },
+        { q: "成功の定義は？", a: "地位や名声を得ること", b: "自分の信念を貫くこと", type: "J" },
+        { q: "人生は？", a: "戦いである", b: "ゲームである", type: "E" }
+    ];
+
+    const pathBQuestions = [
+        { q: "自分を見つめる時間は？", a: "毎日欠かさず作りたい", b: "時々で十分だ", type: "I" },
+        { q: "物事の学び方は？", a: "独学で深めたい", b: "誰かに教わりたい", type: "S" },
+        { q: "環境の変化には？", a: "徐々に慣れていきたい", b: "すぐに対応したい", type: "P" },
+        { q: "大切にしたいのは？", a: "自分の感受性", b: "社会的な常識", type: "N" },
+        { q: "趣味に没頭するなら？", a: "一人で極めたい", b: "仲間と共有したい", type: "I" },
+        { q: "判断に迷った時は？", a: "自分の心が落ち着く方を選ぶ", b: "他人がどう思うかを考える", type: "F" },
+        { q: "理想の生活は？", a: "自給自足のようなシンプルさ", b: "便利で賑やかな都会風", type: "S" },
+        { q: "感情の起伏は？", a: "あまり表に出さない", b: "素直に表現する", type: "I" },
+        { q: "計画を立てるのは？", a: "苦手で、流れに身を任せる", b: "好きで、きっちり決めたい", type: "J" },
+        { q: "読書をするなら？", a: "専門的な実用書", b: "物語や詩集", type: "N" },
+        { q: "嫌いな状況は？", a: "注目を浴び続けること", b: "孤独を感じること", type: "I" },
+        { q: "褒められて嬉しいのは？", a: "「独特な感性だね」", b: "「丁寧な仕事だね」", type: "S" },
+        { q: "美しさを感じるのは？", a: "自然のままの姿", b: "整えられた機能美", type: "N" },
+        { q: "会話のスタイルは？", a: "聞き役に回ることが多い", b: "自分から話題を振る", type: "I" },
+        { q: "座右の銘にするなら？", a: "「柳に風」", b: "「石の上にも三年」", type: "P" },
+        { q: "人付き合いで疲れたら", a: "完全に一人で閉じこもる", b: "信頼できる一人とだけ話す", type: "I" },
+        { q: "大切にしている持ち物は？", a: "長く使い込んだ愛着のあるもの", b: "最新の便利なもの", type: "S" },
+        { q: "夢や目標は？", a: "心の中に秘めておく", b: "紙に書いて貼る", type: "I" },
+        { q: "約束の時間は？", a: "少し遅れても気にしない", b: "5分前には到着する", type: "P" },
+        { q: "自分へのご褒美は？", a: "贅沢な静寂の時間", b: "美味しい食事", type: "I" },
+        { q: "物語の結末は？", a: "ハッピーエンドがいい", b: "考えさせられる余韻がいい", type: "F" },
+        { q: "誰かと意見が違ったら？", a: "静かに身を引く", b: "自分の考えを穏やかに伝える", type: "I" },
+        { q: "人生に求めるのは？", a: "深い充足感", b: "確かな安定", type: "N" },
+        { q: "自分を動物に例えるなら？", a: "猫のような自由さ", b: "犬のような忠実さ", type: "P" }
+    ];
+
+    let isPathChosen = false;
+    let selectedPath = null;
+    let step = 0;
+    let scores = { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0 };
+
+    function showScreen(screenId) {
+        const screens = ['home-screen', 'quiz-screen', 'result-screen'];
+        screens.forEach(id => {
+            const el = document.getElementById(id);
+            el.classList.remove('active');
+            el.style.display = 'none'; 
+        });
+        const target = document.getElementById(screenId);
+        target.style.display = 'block';
+        target.classList.add('active');
+    }
+
+    function startApp() {
+        showScreen('quiz-screen');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        let q;
+        if (!isPathChosen) {
+            q = branchQuestion;
+            document.getElementById('status-text').innerText = "Path Choice";
+            document.getElementById('progress').style.width = "4%";
+        } else {
+            const list = selectedPath === 'A' ? pathAQuestions : pathBQuestions;
+            q = list[step];
+            document.getElementById('status-text').innerText = `Analysis: ${step + 1} / 24`;
+            document.getElementById('progress').style.width = ((step + 1) / 24 * 100) + "%";
+        }
+        document.getElementById('q-text').innerText = q.q;
+        document.getElementById('btnA').innerText = q.a;
+        document.getElementById('btnB').innerText = q.b;
+    }
+
+    function handleAnswer(choice) {
+        if (!isPathChosen) {
+            selectedPath = choice;
+            isPathChosen = true;
+            renderQuestion();
+        } else {
+            const list = selectedPath === 'A' ? pathAQuestions : pathBQuestions;
+            const q = list[step];
+            const char = (choice === 'A') ? q.type : getOpposite(q.type);
+            scores[char]++;
+            
+            step++;
+            if (step < 24) {
+                renderQuestion();
+            } else {
+                showResult();
+            }
+        }
+    }
+
+    function getOpposite(t) {
+        const opp = {E:'I', I:'E', S:'N', N:'S', T:'F', F:'T', J:'P', P:'J'};
+        return opp[t];
+    }
+
+    async function showResult() {
+        showScreen('result-screen');
+
+        let key = "";
+        const mbti = (scores.E >= scores.I ? 'E' : 'I') + 
+                     (scores.S >= scores.N ? 'S' : 'N') + 
+                     (scores.T >= scores.F ? 'T' : 'F') + 
+                     (scores.J >= scores.P ? 'J' : 'P');
+
+        if (selectedPath === 'A') {
+            if (scores.T > 8) key = "A1";
+            else if (scores.E > 8) key = "A3";
+            else if (scores.J > 8) key = "A2";
+            else if (scores.S > 8) key = "A4";
+            else key = mbti;
+        } else {
+            if (scores.I > 8) key = "B1";
+            else if (scores.S > 8) key = "B2";
+            else if (scores.P > 8) key = "B3";
+            else if (scores.N > 8) key = "B4";
+            else key = mbti;
+        }
+
+        if(!insectDB[key]) key = "ISTJ"; 
+
+        const insect = insectDB[key];
+        document.getElementById('res-name').innerText = insect.name;
+        document.getElementById('res-desc').innerText = insect.desc;
+
+        try {
+            const resp = await fetch(`https://ja.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(insect.wiki)}`);
+            const data = await resp.json();
+            document.getElementById('res-img').src = data.thumbnail ? data.thumbnail.source : "https://via.placeholder.com/400x300?text=Result";
+        } catch (e) {
+            console.error("Wiki Error");
+        }
+    }
+</script>
+</body>
+</html>
